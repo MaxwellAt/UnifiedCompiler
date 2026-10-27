@@ -1,31 +1,39 @@
 # UniComp (Compilador Único / Universal Remote Execution Engine)
 
 <p align="center">
-  <b>A força de processamento do seu cluster ou máquina dedicada com a ergonomia do seu notebook local.</b><br>
+  <a href="https://github.com/MaxwellAt/UnifiedCompiler/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
+  <a href="https://www.rust-lang.org/"><img src="https://img.shields.io/badge/Rust-1.80%2B-orange.svg?logo=rust" alt="Rust 1.80+"></a>
+  <img src="https://img.shields.io/badge/Version-0.1.0--alpha-blue.svg" alt="Version 0.1.0-alpha">
+  <img src="https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg" alt="Platforms">
+</p>
+
+<p align="center">
+  <b>A força de processamento do seu cluster ou computador dedicado com a ergonomia do seu notebook local.</b><br>
   <i>Sem SSH. Sem Git push/pull manual. Sem dualidade de ambientes.</i>
 </p>
 
 <p align="center">
-  <a href="VISION.md"><b>Manifesto & Visão</b></a> •
-  <a href="ROADMAP.md"><b>Roadmap</b></a> •
-  <a href="CONTRIBUTING.md"><b>Como Contribuir</b></a> •
-  <a href="UNICOMP_ARCHITECTURE_SPEC.md"><b>Especificação Técnica</b></a>
+  <a href="README_EN.md">🌐 <b>English Version</b></a> •
+  <a href="VISION.md">💡 <b>Manifesto & Visão</b></a> •
+  <a href="ROADMAP.md">🗺️ <b>Roadmap</b></a> •
+  <a href="CONTRIBUTING.md">🤝 <b>Como Contribuir</b></a> •
+  <a href="UNICOMP_ARCHITECTURE_SPEC.md">🔬 <b>Especificação Técnica</b></a>
 </p>
 
 ---
 
-## 💡 A Grande Ideia (Por que o UniComp existe?)
+## 💡 Por que o UniComp existe?
 
-Frequentemente, desenvolvedores possuem uma máquina potente disponível na rede (um desktop gamer com GPU, uma workstation com muitos núcleos ou um servidor homelab), mas utilizam um notebook no dia a dia.
+Desenvolvedores frequentemente possuem uma máquina potente disponível na rede (um desktop com GPU, uma workstation com muitos núcleos ou um servidor homelab), mas utilizam um notebook no dia a dia.
 
-Hoje, usar essa máquina potente para rodar seu código exige um ritual cheio de atrito:
+Hoje, usar essa máquina potente para rodar seu código exige um ritual desgastante:
 1. Dar `git commit` e `git push` no notebook.
 2. Acessar a outra máquina via SSH ou Remote Desktop.
 3. Dar `git pull`.
 4. Resolver dependências e versões que quebram no ambiente remoto (`pip`, `npm`, `rustup`, `java`).
 5. Executar o comando e tentar inspecionar os logs longe do seu editor.
 
-O **UniComp** resolve essa lacuna. Inspirado na arquitetura do **Databricks Connect** e do **Google Bazel Remote Execution API (REAPI)**, ele transforma qualquer computador em um nó de execução transparente:
+O **UniComp** elimina esse atrito. Inspirado na arquitetura do **Databricks Connect** e do **Google Bazel Remote Execution API (REAPI)**, ele transforma qualquer computador em um nó de execução transparente:
 
 * O seu código permanece **100% no seu notebook**.
 * O comando de execução é interceptado e redirecionado para a máquina dedicada.
@@ -33,34 +41,45 @@ O **UniComp** resolve essa lacuna. Inspirado na arquitetura do **Databricks Conn
 * A compilação e a execução pesada acontecem no host remoto.
 * O `stdout`, `stderr`, códigos de saída e métricas voltam para o seu terminal em tempo real como se o processo estivesse rodando na sua própria máquina (`localhost`).
 
-Para ler a motivação e os princípios completos, veja o nosso [**Manifesto de Visão (`VISION.md`)**](VISION.md).
+---
+
+## ⚖️ O Confronto: Fluxo Tradicional vs. UniComp
+
+| Ação do Dia a Dia | Fluxo Tradicional (SSH / Git) | Fluxo com UniComp |
+| :--- | :--- | :--- |
+| **Testar alteração rápida** | `git add` ➔ `commit` ➔ `push` ➔ `ssh host` ➔ `pull` ➔ `run` | Apenas `unicomp run` (upload apenas do delta de bytes) |
+| **Código não commitado (WIP)** | Força commits descartáveis sujos (`git commit -m "wip test"`) | Sincroniza o estado real do disco sem poluir o histórico Git |
+| **Instalação de Dependências** | Acessar o host e rodar `pip`, `npm`, `cargo` manualmente | O Host resolve automaticamente em cache global isolado |
+| **Visualização de Logs e Saídas** | Terminal remoto desconectado ou tail em arquivos | `stdout` e `stderr` renderizados no seu próprio terminal local |
+| **Cancelamento (`Ctrl+C`)** | Deixa processo órfão no host ou exige matar PID manual | Sinal `SIGINT` é repassado instantaneamente ao processo remoto |
+| **Hardware do Notebook** | Notebook esquenta, drena bateria e engasga com builds | Notebook permanece frio; o host assume 100% da carga |
+
+> [!TIP]
+> **Zero Commits Obrigatórios:** O UniComp lê diretamente os arquivos salvos no seu disco. Você pode testar ideias, rascunhos e debugar código sem precisar poluir o histórico do Git com commits de teste.
 
 ---
 
 ## 🏛️ Como Funciona o Sistema
 
-```
-                  +-----------------------------------+
-                  |        UniComp Client (CLI)       |
-                  |     (Seu Notebook / Workstation)  |
-                  +-----------------+-----------------+
-                                    |
-          1. Workspace Merkle Walk  | 2. Manifest & Env Probe
-          3. Upload de Deltas (CAS) | 4. Streaming Bidirecional em Tempo Real
-                                    v
-                  +-----------------------------------+
-                  |      UniComp Daemon (Worker)      |
-                  |     (Máquina Dedicada / Host)     |
-                  +-----------------+-----------------+
-                                    |
-     +------------------------------+------------------------------+
-     |                              |                              |
-     v                              v                              v
-+------------+              +---------------+              +---------------+
-| Content    |              |  Auto-Env     |              |  Execution    |
-| Addressed  |              |  Hydration    |              |  Supervisor   |
-| Store(CAS) |              | (uv/pnpm/etc) |              | (Stdout/Err)  |
-+------------+              +---------------+              +---------------+
+```mermaid
+flowchart TD
+    subgraph Client["💻 Seu Notebook / Workstation (Cliente)"]
+        A["Seu Código Local (IDE / Editor)"] --> B["Merkle Tree Scanner & Hasher"]
+        B --> C["UniComp CLI (unicomp run)"]
+    end
+
+    subgraph Transport["⚡ Rede de Alta Velocidade (gRPC / Streaming)"]
+        C <== "1. Envio de Deltas (CAS) / Stdin" ==> D["Túnel Bidirecional"]
+        D <== "2. Stdout / Stderr / Sinais / Exit Code" ==> C
+    end
+
+    subgraph Host["🖥️ Máquina Dedicada / Cluster (Host Daemon)"]
+        D --> E["UniComp Daemon (unicomp daemon)"]
+        E --> F["Content-Addressable Storage (CAS)"]
+        E --> G["Auto-Hydration de Runtimes (uv / pnpm / sccache)"]
+        F --> H["Execução Isolada / Sandbox"]
+        G --> H
+    end
 ```
 
 ---
@@ -74,6 +93,9 @@ Para ler a motivação e os princípios completos, veja o nosso [**Manifesto de 
 | **Node.js / TypeScript** | `package.json`, `index.js` | Execução via `node` / `npm start` / `pnpm` com store compartilhada. |
 | **JVM (Java / Kotlin)** | `pom.xml`, `build.gradle`, `*.java` | Compilação e execução via JVM (`javac` + `java` ou Gradle). |
 | **Comando Personalizado** | Qualquer script ou binário | Flag `-- <comando>` para executar qualquer pipeline arbitrário. |
+
+> [!NOTE]
+> Você **não precisa** ter o compilador ou runtime instalado no seu notebook. Se o seu notebook não tem Rust ou Python instalados, mas a máquina dedicada tem, o UniComp envia seu código e o executa perfeitamente.
 
 ---
 
@@ -95,7 +117,7 @@ unicomp daemon --bind 0.0.0.0:9876
 unicomp check --host 192.168.1.50:9876
 ```
 
-### 4. Executar Seus Projetos sem Subir nada Manualmente
+### 4. Executar Seus Projetos Remotamente
 ```bash
 # Executar projeto Python (exemplo de Monte Carlo)
 unicomp run --host 192.168.1.50:9876 --dir examples/python_job
@@ -112,20 +134,36 @@ unicomp run --host 192.168.1.50:9876 --dir examples/java_job
 
 ---
 
+## ❓ Perguntas Frequentes (FAQ)
+
+### O UniComp é um concorrente do Docker?
+**Não.** O Docker exige a escrita de `Dockerfiles` e a criação de imagens pesadas (`docker build`), o que introduz alto atrito para testar alterações rápidas. O UniComp executa sobre runtimes nativos do host de forma quase instantânea com sincronização de deltas em nível de arquivo.
+
+### O UniComp envia meu código para a nuvem de terceiros?
+**Não.** O UniComp opera diretamente ponto-a-ponto entre os seus computadores (via cabo ethernet, Wi-Fi local, VPN Tailscale/WireGuard ou rede interna). Seu código nunca transita por servidores externos.
+
+### O que acontece quando eu cancelo a execução com `Ctrl+C`?
+O cliente intercepta o sinal e envia imediatamente uma mensagem de interrupção para o host daemon, que propaga o `SIGINT` para a árvore de processos remota, evitando que scripts orfãos fiquem rodando em segundo plano.
+
+---
+
 ## 🗺️ Roadmap de Evolução
 
-Nosso objetivo é transformar o UniComp em uma experiência 100% invisível (zero configuração manual de IPs, descoberta local mDNS automática, shims para VS Code e pooling de recursos).  
-Consulte o [**ROADMAP.md**](ROADMAP.md) para detalhes de cada fase.
+Consulte o [**`ROADMAP.md`**](ROADMAP.md) para conferir os marcos futuros, incluindo:
+- Descoberta automática de nós na rede local via mDNS (sem precisar digitar IP).
+- Arquivo de configuração `.unicomp.toml`.
+- Extensão para VS Code e Cursor.
+- Pool de nós com balanceamento automático por GPU vs. CPU.
 
 ---
 
 ## 🤝 Como Contribuir
 
-Contribuições em código, documentação e sugestões de arquitetura são muito bem-vindas!  
-Consulte o [**Guia de Contribuição (`CONTRIBUTING.md`)**](CONTRIBUTING.md) para entender como configurar o ambiente e quais áreas estão abertas para desenvolvimento.
+Contribuições em código, documentação e sugestões são muito bem-vindas!  
+Consulte o [**Guia de Contribuição (`CONTRIBUTING.md`)**](CONTRIBUTING.md) para detalhes de desenvolvimento e testes.
 
 ---
 
 ## 📄 Licença
 
-Distribuído sob licença aberta (MIT / Apache 2.0). Veja o arquivo `LICENSE` para mais detalhes.
+Distribuído sob licença aberta [MIT](LICENSE).
