@@ -1,0 +1,7 @@
+{
+  "name": "node-cluster-job",
+  "version": "1.0.0",
+  "scripts": {
+    "start": "node index.js"
+  }
+}

@@ -1,0 +1,178 @@
+syntax = "proto3";
+
+package unicomp.v1;
+
+service NodeDiscoveryService {
+  rpc GetNodeCapabilities (CapabilitiesRequest) returns (CapabilitiesResponse);
+}
+
+service CasService {
+  rpc FindMissingBlobs (FindMissingBlobsRequest) returns (FindMissingBlobsResponse);
+  rpc UploadBlobStream (stream UploadBlobChunk) returns (UploadBlobResponse);
+  rpc DownloadBlobStream (DownloadBlobRequest) returns (stream DownloadBlobChunk);
+}
+
+service ExecutionService {
+  // Bidirectional streaming for interactive execution and telemetry
+  rpc Execute (stream ClientStreamMessage) returns (stream HostStreamMessage);
+}
+
+// Capabilities
+message CapabilitiesRequest {
+  string client_version = 1;
+}
+
+message ToolchainInfo {
+  string name = 1;         // "rust", "python", "node", "java", "cuda"
+  string version = 2;      // "1.82.0", "3.12.3", etc.
+  string binary_path = 3;
+}
+
+message CapabilitiesResponse {
+  string os = 1;                // "linux"
+  string arch = 2;              // "x86_64", "aarch64"
+  string kernel_version = 3;
+  repeated ToolchainInfo toolchains = 4;
+  uint64 total_memory_bytes = 5;
+  uint32 cpu_cores = 6;
+  bool gpu_available = 7;
+  string gpu_model = 8;
+  string sandbox_driver = 9;   // "bwrap", "cgroups_v2", "containerd", "firecracker"
+}
+
+// Content-Addressable Storage (CAS)
+message Digest {
+  string sha256 = 1;
+  int64 size_bytes = 2;
+}
+
+message FindMissingBlobsRequest {
+  repeated Digest blob_digests = 1;
+}
+
+message FindMissingBlobsResponse {
+  repeated Digest missing_digests = 1;
+}
+
+message UploadBlobChunk {
+  Digest digest = 1;
+  bytes chunk_data = 2;
+  bool is_last_chunk = 3;
+  string compression = 4; // "none", "zstd"
+}
+
+message UploadBlobResponse {
+  repeated Digest committed_digests = 1;
+}
+
+message DownloadBlobRequest {
+  Digest digest = 1;
+}
+
+message DownloadBlobChunk {
+  Digest digest = 1;
+  bytes chunk_data = 2;
+  bool is_last_chunk = 3;
+}
+
+// Workspace File Tree Specification
+message FileNode {
+  string relative_path = 1;
+  Digest digest = 2;
+  uint32 unix_permissions = 3;
+  bool is_executable = 4;
+}
+
+message WorkspaceTree {
+  repeated FileNode files = 1;
+  repeated string directories = 2;
+  repeated SymlinkNode symlinks = 3;
+}
+
+message SymlinkNode {
+  string relative_path = 1;
+  string target_path = 2;
+}
+
+// Execution Pipeline Messages
+message ExecutionConfig {
+  string project_id = 1;
+  string language_preset = 2;     // "rust", "python", "node", "jvm", "custom"
+  repeated string command = 3;    // ["cargo", "run", "--release"]
+  map<string, string> env_vars = 4;
+  string working_directory = 5;
+  WorkspaceTree workspace_tree = 6;
+  bool pty_enabled = 7;
+  TerminalDimensions terminal_size = 8;
+  ResourceLimits limits = 9;
+}
+
+message TerminalDimensions {
+  uint32 columns = 1;
+  uint32 rows = 2;
+}
+
+message ResourceLimits {
+  uint64 memory_limit_bytes = 1;
+  float cpu_quota = 2;
+  uint32 pids_limit = 3;
+  uint64 execution_timeout_seconds = 4;
+}
+
+// Client -> Host Stream
+message ClientStreamMessage {
+  oneof payload {
+    ExecutionConfig init = 1;
+    bytes stdin_chunk = 2;
+    TerminalDimensions resize_pty = 3;
+    int32 signal = 4; // POSIX signal (e.g. 2 for SIGINT, 15 for SIGTERM)
+    bool close_stdin = 5;
+  }
+}
+
+// Host -> Client Stream
+message HostStreamMessage {
+  oneof payload {
+    bytes stdout_chunk = 1;
+    bytes stderr_chunk = 2;
+    ExecutionExit exit_status = 3;
+    ExecutionMetrics metrics = 4;
+    ExecutionPhaseUpdate phase = 5;
+  }
+}
+
+enum ExecutionPhase {
+  PHASE_UNKNOWN = 0;
+  PHASE_VERIFYING_CAS = 1;
+  PHASE_MOUNTING_SANDBOX = 2;
+  PHASE_HYDRATING_DEPENDENCIES = 3;
+  PHASE_COMPILING = 4;
+  PHASE_RUNNING = 5;
+  PHASE_COMPLETED = 6;
+  PHASE_FAILED = 7;
+}
+
+message ExecutionPhaseUpdate {
+  ExecutionPhase phase = 1;
+  string message = 2;
+  int64 timestamp_ns = 3;
+}
+
+message ExecutionMetrics {
+  float cpu_percent = 1;
+  uint64 memory_rss_bytes = 2;
+  uint64 disk_read_bytes = 3;
+  uint64 disk_write_bytes = 4;
+  uint64 network_rx_bytes = 5;
+  uint64 network_tx_bytes = 6;
+  float gpu_utilization = 7;
+}
+
+message ExecutionExit {
+  int32 exit_code = 1;
+  int32 termination_signal = 2;
+  uint64 wall_clock_time_ms = 3;
+  uint64 cpu_time_user_ms = 4;
+  uint64 cpu_time_sys_ms = 5;
+  repeated FileNode output_artifacts = 6;
+}
