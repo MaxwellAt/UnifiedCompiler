@@ -2,6 +2,11 @@
 name = "unicomp"
 version = "0.1.0"
 edition = "2021"
+authors = ["Jêfferson Maxwell", "UnifiedCompiler Contributors"]
+description = "Universal Distributed Compiler and Remote Execution Engine"
+license = "AGPL-3.0-or-later"
+repository = "https://github.com/MaxwellAt/UnifiedCompiler"
+
 
 [dependencies]
 tokio = { version = "1.40", default-features = false, features = ["rt-multi-thread", "macros", "net", "io-util", "process", "time", "sync", "fs"] }

@@ -1,7 +1,7 @@
 # UniComp (Compilador Único / Universal Remote Execution Engine)
 
 <p align="center">
-  <a href="https://github.com/MaxwellAt/UnifiedCompiler/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
+  <a href="https://github.com/MaxwellAt/UnifiedCompiler/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-AGPL_v3-blue.svg" alt="License: AGPL v3"></a>
   <a href="https://www.rust-lang.org/"><img src="https://img.shields.io/badge/Rust-1.80%2B-orange.svg?logo=rust" alt="Rust 1.80+"></a>
   <img src="https://img.shields.io/badge/Version-0.1.0--alpha-blue.svg" alt="Version 0.1.0-alpha">
   <img src="https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg" alt="Platforms">
@@ -166,4 +166,4 @@ Consulte o [**Guia de Contribuição (`CONTRIBUTING.md`)**](CONTRIBUTING.md) par
 
 ## 📄 Licença
 
-Distribuído sob licença aberta [MIT](LICENSE).
+Distribuído sob licença aberta [GNU Affero General Public License v3 (AGPL-3.0)](LICENSE).

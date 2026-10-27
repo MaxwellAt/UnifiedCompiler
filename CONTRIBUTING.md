@@ -92,7 +92,7 @@ Confira o nosso [`ROADMAP.md`](ROADMAP.md) para a lista completa. Algumas tarefa
 
 ---
 
-## 📝 Padrão de Commits
+## 📝 Padrão de Commits e Licenciamento
 
 Adotamos o padrão **Conventional Commits**:
 * `feat: ...` para novas funcionalidades.
@@ -100,3 +100,5 @@ Adotamos o padrão **Conventional Commits**:
 * `docs: ...` para melhorias de documentação.
 * `refactor: ...` para refatorações que não alteram comportamento.
 * `perf: ...` para melhorias de desempenho.
+
+Todas as contribuições submetidas ao projeto são licenciadas sob a **GNU Affero General Public License v3 (AGPL-3.0)**. Ao enviar um Pull Request, você confirma que seu código pode ser compartilhado sob estes termos.
