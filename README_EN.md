@@ -65,21 +65,42 @@ Today, using that secondary machine to run your code requires an exhaustive, fri
 flowchart TD
     subgraph Client["💻 Your Laptop / Workstation (Client)"]
         A["Local Code (IDE / Editor)"] --> B["Merkle Tree Scanner & Hasher"]
-        B --> C["UniComp CLI (unicomp run)"]
+        B --> C["UniComp CLI & Cluster Router"]
     end
 
-    subgraph Transport["⚡ High-Speed Network (gRPC / Streaming)"]
-        C <== "1. Delta Uploads (CAS) / Stdin" ==> D["Bidirectional Stream"]
-        D <== "2. Stdout / Stderr / Signals / Exit Code" ==> C
+    subgraph Network["⚡ High-Speed Network (gRPC / Streaming Mesh)"]
+        C <== "1. Delta Uploads (CAS) / Stdin" ==> N["Load Dispatcher & Streaming Engine"]
+        N <== "2. Stdout / Stderr / Signals / Exit Code" ==> C
     end
 
-    subgraph Host["🖥️ Dedicated Machine / Cluster (Host Daemon)"]
-        D --> E["UniComp Daemon (unicomp daemon)"]
-        E --> F["Content-Addressable Storage (CAS)"]
-        E --> G["Runtime Auto-Hydration (uv / pnpm / sccache)"]
-        F --> H["Isolated Execution / Sandbox"]
-        G --> H
+    subgraph Cluster["🖥️ Cluster Node Pool (Dedicated Execution Hosts)"]
+        direction TB
+
+        subgraph NodeGPU["🎮 Node 1: GPU Worker (Desktop RTX / CUDA)"]
+            D1["UniComp Daemon"]
+            CAS1["Local CAS"]
+            Tool1["PyTorch / CUDA / AI & Rendering"]
+            D1 --> CAS1 --> Tool1
+        end
+
+        subgraph NodeCPU["🚀 Node 2: High-Core Worker (32+ Core Server)"]
+            D2["UniComp Daemon"]
+            CAS2["Local CAS"]
+            Tool2["Rust / C++ / Parallel Compilation"]
+            D2 --> CAS2 --> Tool2
+        end
+
+        subgraph NodeGeneral["🏢 Node 3: General / Edge Worker (Homelab / Mini-PC)"]
+            D3["UniComp Daemon"]
+            CAS3["Local CAS"]
+            Tool3["Node.js / Python / Test Suites & JVM"]
+            D3 --> CAS3 --> Tool3
+        end
     end
+
+    N --> D1
+    N --> D2
+    N --> D3
 ```
 
 ---

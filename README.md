@@ -65,21 +65,42 @@ O **UniComp** elimina esse atrito. Inspirado na arquitetura do **Databricks Conn
 flowchart TD
     subgraph Client["💻 Seu Notebook / Workstation (Cliente)"]
         A["Seu Código Local (IDE / Editor)"] --> B["Merkle Tree Scanner & Hasher"]
-        B --> C["UniComp CLI (unicomp run)"]
+        B --> C["UniComp CLI & Roteador de Cluster"]
     end
 
-    subgraph Transport["⚡ Rede de Alta Velocidade (gRPC / Streaming)"]
-        C <== "1. Envio de Deltas (CAS) / Stdin" ==> D["Túnel Bidirecional"]
-        D <== "2. Stdout / Stderr / Sinais / Exit Code" ==> C
+    subgraph Network["⚡ Rede de Alta Velocidade (gRPC / Streaming Mesh)"]
+        C <== "1. Upload de Deltas (CAS) / Stdin" ==> N["Distribuidor de Carga & Streaming"]
+        N <== "2. Stdout / Stderr / Sinais / Exit Code" ==> C
     end
 
-    subgraph Host["🖥️ Máquina Dedicada / Cluster (Host Daemon)"]
-        D --> E["UniComp Daemon (unicomp daemon)"]
-        E --> F["Content-Addressable Storage (CAS)"]
-        E --> G["Auto-Hydration de Runtimes (uv / pnpm / sccache)"]
-        F --> H["Execução Isolada / Sandbox"]
-        G --> H
+    subgraph Cluster["🖥️ Pool de Nós do Cluster (Hosts Dedicados)"]
+        direction TB
+
+        subgraph NodeGPU["🎮 Nó 1: Worker com GPU (Desktop RTX / CUDA)"]
+            D1["UniComp Daemon"]
+            CAS1["CAS Local"]
+            Tool1["PyTorch / CUDA / IA & Render"]
+            D1 --> CAS1 --> Tool1
+        end
+
+        subgraph NodeCPU["🚀 Nó 2: Worker High-Core (Servidor 32+ Cores)"]
+            D2["UniComp Daemon"]
+            CAS2["CAS Local"]
+            Tool2["Rust / C++ / Compilação Paralela"]
+            D2 --> CAS2 --> Tool2
+        end
+
+        subgraph NodeGeneral["🏢 Nó 3: Worker Geral / Edge (Homelab / Mini-PC)"]
+            D3["UniComp Daemon"]
+            CAS3["CAS Local"]
+            Tool3["Node.js / Python / Testes & JVM"]
+            D3 --> CAS3 --> Tool3
+        end
     end
+
+    N --> D1
+    N --> D2
+    N --> D3
 ```
 
 ---

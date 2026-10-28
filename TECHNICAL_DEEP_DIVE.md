@@ -48,46 +48,54 @@ sequenceDiagram
 
 ---
 
-## 2. Diagrama de Camadas da Arquitetura
+## 2. Diagrama de Camadas da Arquitetura do Cluster
 
 ```mermaid
 graph TD
     subgraph "Master / Client (Windows / macOS / Linux)"
         CLI["UniComp CLI (Binary Nativo Rust)"]
         Scanner["Merkle Scanner & Ignore Parser"]
+        Scheduler["Cluster Scheduler & Node Router"]
         RawTerm["Terminal Raw Mode & Signal Interceptor"]
         GrpcClient["Tonic gRPC Client (mTLS)"]
         CLI --> Scanner
+        CLI --> Scheduler
+        Scheduler --> GrpcClient
         CLI --> RawTerm
-        CLI --> GrpcClient
     end
 
-    subgraph "Rede de Alta Velocidade (gRPC / mTLS)"
+    subgraph "Rede de Alta Velocidade (gRPC / mTLS Mesh)"
         StreamPipe["HTTP/2 Multiplexed Bidirectional Stream<br/>(Protobuf: Stdin, Stdout, Stderr, PTY, Metrics)"]
         GrpcClient <===> StreamPipe
     end
 
-    subgraph "Host / Cluster Worker (Linux x86_64 / ARM64)"
-        Daemon["UniComp Daemon (Rust/Tokio)"]
-        StreamPipe <===> Daemon
-        CasEngine["Content-Addressed Storage (CAS Engine)<br/>Zstd Compression + Content Deduplication"]
-        DepHydrator["Dependency Hydrator<br/>(uv cache / pnpm store / sccache / gradle daemon)"]
-        SandboxMgr["Sandbox & Isolation Manager<br/>(Bubblewrap / Cgroups v2 / Namespaces)"]
-        PtyMultiplexer["PTY Multiplexer & I/O Loop<br/>(nix::pty, termios, ioctl TIOCSWINSZ)"]
-        
-        Daemon --> CasEngine
-        Daemon --> DepHydrator
-        Daemon --> SandboxMgr
-        Daemon --> PtyMultiplexer
-        
-        subgraph "Execução Isolada (Sandbox Jail)"
-            Overlay["OverlayFS: Base Tools + Workspace Mount + Tmpfs Upper"]
-            TargetProc["Processo de Execução Alvo<br/>(Python / Node / Rust / JVM / C)"]
-            SandboxMgr --> Overlay
-            PtyMultiplexer --> TargetProc
-            Overlay -.-> TargetProc
+    subgraph "Pool de Execução Distribuída (Cluster Hosts)"
+        subgraph "Nó 1: Worker GPU (Desktop RTX / CUDA)"
+            Daemon1["UniComp Daemon"]
+            Cas1["CAS Local (Zstd)"]
+            Proc1["Workload GPU (PyTorch / CUDA)"]
+            Daemon1 --> Cas1 --> Proc1
+        end
+
+        subgraph "Nó 2: Worker High-Core (Servidor 32+ Cores)"
+            Daemon2["UniComp Daemon"]
+            Cas2["CAS Local (Zstd)"]
+            Proc2["Builds Pesados (Rust / C++)"]
+            Daemon2 --> Cas2 --> Proc2
+        end
+
+        subgraph "Nó 3: Worker Geral / Edge (Homelab / Mini-PC)"
+            Daemon3["UniComp Daemon"]
+            Cas3["CAS Local (Zstd)"]
+            Proc3["Pipelines (Node.js / JVM / Python)"]
+            Daemon3 --> Cas3 --> Proc3
         end
     end
+
+    StreamPipe <===> Daemon1
+    StreamPipe <===> Daemon2
+    StreamPipe <===> Daemon3
+```
 ```
 
 ---
