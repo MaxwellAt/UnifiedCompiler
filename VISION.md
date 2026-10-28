@@ -40,23 +40,28 @@ Plataformas modernas de Big Data como o **Databricks** resolveram isso de uma fo
 
 ## 3. Os Princípios Fundamentais do UniComp
 
-### Princípio 1: Zero-Configuração Remota (O Host se Auto-Configura)
+### Princípio 1: Os Dois Modos de Operação (Offload vs. Scatter-Gather)
+Nem todo código pode ser dividido pela rede (devido à barreira da memória compartilhada e dependências sequenciais). Por isso, o UniComp opera em duas frentes fundamentais:
+* **Modo Offload (Single-Host Dedicado):** Para códigos estritamente sequenciais ou que exigem hardware específico (ex: GPU com CUDA). O código roda 100% na máquina remota mais potente, mantendo o notebook frio e com bateria livre.
+* **Modo Scatter-Gather (Multi-Host Cluster - O Modelo Databricks):** Para tarefas fatiáveis e paralelismo de dados (ex: compilação de múltiplos arquivos, processamento de grandes lotes, grid search e simulações). O UniComp particiona o volume de trabalho em $N$ fatias, distribui para múltiplos nós da rede local e consolida os resultados.
+
+### Princípio 2: Zero-Configuração Remota (O Host se Auto-Configura)
 O desenvolvedor nunca deve precisar abrir uma sessão SSH para instalar pacotes ou preparar pastas na máquina host. O daemon remoto analisa os manifestos recebidos (`requirements.txt`, `package.json`, `Cargo.lock`, etc.) e gerencia os ambientes de forma autônoma e descartável.
 
-### Princípio 2: Local Ergonomics, Remote Compute
+### Princípio 3: Local Ergonomics, Remote Compute
 O comando executado no cliente deve se comportar de forma indistinguível de um comando local:
 * Mesmas saídas no terminal (`stdout` e `stderr` separados).
 * Cores ANSI e barras de progresso preservadas.
 * Cancelamento imediato via `Ctrl+C` repassado diretamente ao processo no host.
 * Mesmo código de saída (`exit code`).
 
-### Princípio 3: Content-Addressable Storage (CAS) e Delta Zero
+### Princípio 4: Content-Addressable Storage (CAS) e Delta Zero
 Não transferimos repositórios nem arquivos repetidos. Usando uma árvore de Merkle (SHA-256):
 * Na primeira execução, apenas o código fonte puro é compactado e enviado.
 * A partir da segunda execução, **o tráfego de rede tende a zero bytes** para arquivos inalterados.
 * Pastas pesadas (`node_modules`, `.venv`, `target`, `.git`) são bloqueadas na origem e reconstruídas/cacheadas no destino.
 
-### Princípio 4: Simetria Binária
+### Princípio 5: Simetria Binária
 Um único executável (`unicomp`) resolve os dois lados da moeda:
 * `unicomp daemon`: Executa no nó de processamento.
 * `unicomp run`: Executa no notebook de desenvolvimento.

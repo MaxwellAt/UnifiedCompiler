@@ -59,6 +59,19 @@ Today, using that secondary machine to run your code requires an exhaustive, fri
 
 ---
 
+## 🎯 The Two Execution Modes: Covering 100% of Workloads
+
+Not every workload can be partitioned over a network (due to the shared memory barrier and sequential dependencies). UniComp solves this by operating across two complementary modes:
+
+1. **Offload Mode (Single Dedicated Host):**
+   * *Best for:* Strictly sequential code, heavy GPU training runs, or monolithic pipelines.
+   * *How it works:* Dispatches the entire job to your fastest remote node. Your laptop stays cool and battery-efficient.
+2. **Scatter-Gather Mode (Multi-Host Cluster - The Databricks Model):**
+   * *Best for:* Partitionable batch workloads (compiling hundreds of `.c`/`.rs` files, data-parallel processing, test suites, simulations).
+   * *How it works:* Slices work into $N$ chunks, sends one chunk to each node in your local cluster to run at full native speed, and aggregates the results back.
+
+---
+
 ## 🏛️ System Architecture
 
 ```mermaid

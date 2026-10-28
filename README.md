@@ -59,6 +59,19 @@ O **UniComp** elimina esse atrito. Inspirado na arquitetura do **Databricks Conn
 
 ---
 
+## 🎯 Os Dois Modos de Execução: Cobrindo 100% dos Cenários
+
+Nem todo código pode ser fatiado pela rede (devido à barreira da memória compartilhada e dependências estritas). Por isso, o UniComp opera com inteligência em dois modos complementares:
+
+1. **Modo Offload (Single-Host Dedicado):**
+   * *Para quê serve:* Códigos estritamente sequenciais, treinos pesados de IA com GPU local ou tarefas monolíticas.
+   * *O que faz:* Envia o código inteiro para a máquina remota mais rápida da sua rede. Seu notebook fica completamente livre.
+2. **Modo Scatter-Gather (Multi-Host Cluster - O Modelo Databricks):**
+   * *Para quê serve:* Tarefas fatiáveis em lote (compilação de centenas de arquivos `.c`/`.rs`, processamento de dados particionados, testes em massa e simulações).
+   * *O que faz:* O cliente fatia o volume de trabalho em $N$ blocos, envia um bloco para cada computador da sua rede rodar em paralelo a 100% da velocidade local, e consolida os resultados de volta.
+
+---
+
 ## 🏛️ Como Funciona o Sistema
 
 ```mermaid
