@@ -44,6 +44,8 @@ pub enum LanguagePreset {
     Python,
     Node,
     Jvm,
+    Go,
+    Cpp,
     Custom,
 }
 

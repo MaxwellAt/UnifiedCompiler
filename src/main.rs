@@ -1,5 +1,6 @@
 mod cas;
 mod client;
+mod config;
 mod framing;
 mod language;
 mod protocol;
@@ -49,8 +50,26 @@ async fn main() -> Result<()> {
             srv.run().await?;
         }
 
+        "init" => {
+            let workdir = env::current_dir()?;
+            let config_path = workdir.join(".unicomp.toml");
+            if config_path.exists() {
+                println!("[UniComp] .unicomp.toml already exists at {}", config_path.display());
+            } else {
+                std::fs::write(&config_path, config::UnicompConfig::default_template())?;
+                println!("============================================================");
+                println!("  UniComp Project Initialized!");
+                println!("============================================================");
+                println!("  Created: {}", config_path.display());
+                println!("  You can now edit .unicomp.toml to configure your host IP,");
+                println!("  sync patterns, and execution settings.");
+                println!("  Then simply run 'unicomp run' with zero extra arguments!");
+                println!("============================================================");
+            }
+        }
+
         "run" | "exec" => {
-            let mut host_addr = "127.0.0.1:9876".to_string();
+            let mut host_addr: Option<String> = None;
             let mut workdir = env::current_dir()?;
             let mut explicit_command = Vec::new();
 
@@ -59,7 +78,7 @@ async fn main() -> Result<()> {
                 match args[i].as_str() {
                     "--host" | "-h" => {
                         if i + 1 < args.len() {
-                            host_addr = args[i + 1].clone();
+                            host_addr = Some(args[i + 1].clone());
                             i += 2;
                             continue;
                         }
@@ -84,22 +103,49 @@ async fn main() -> Result<()> {
                 i += 1;
             }
 
-            let client = client::ClientRunner::new(&host_addr, &workdir, explicit_command);
+            // Resolve host from .unicomp.toml if not passed via CLI
+            let (resolved_host, project_cfg) = match config::UnicompConfig::find_and_load(&workdir) {
+                Some((cfg, path)) => {
+                    let h = host_addr.or_else(|| cfg.host.as_ref().and_then(|h| h.default.clone()))
+                        .unwrap_or_else(|| "127.0.0.1:9876".to_string());
+                    println!("[UniComp] Loaded configuration from {}", path.display());
+                    (h, Some(cfg))
+                }
+                None => {
+                    let h = host_addr.unwrap_or_else(|| "127.0.0.1:9876".to_string());
+                    (h, None)
+                }
+            };
+
+            let client = client::ClientRunner::new(&resolved_host, &workdir, explicit_command, project_cfg);
             let exit_code = client.run().await?;
             std::process::exit(exit_code);
         }
 
         "check" | "status" | "info" => {
-            let mut host_addr = "127.0.0.1:9876".to_string();
+            let workdir = env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+            let mut host_addr: Option<String> = None;
+
             if args.len() >= 3 && !args[2].starts_with('-') {
-                host_addr = args[2].clone();
+                host_addr = Some(args[2].clone());
             } else if let Some(pos) = args.iter().position(|a| a == "--host" || a == "-h") {
                 if pos + 1 < args.len() {
-                    host_addr = args[pos + 1].clone();
+                    host_addr = Some(args[pos + 1].clone());
                 }
             }
 
-            run_check(&host_addr).await?;
+            let resolved_host = match host_addr {
+                Some(h) => h,
+                None => {
+                    if let Some((cfg, _)) = config::UnicompConfig::find_and_load(&workdir) {
+                        cfg.host.and_then(|h| h.default).unwrap_or_else(|| "127.0.0.1:9876".to_string())
+                    } else {
+                        "127.0.0.1:9876".to_string()
+                    }
+                }
+            };
+
+            run_check(&resolved_host).await?;
         }
 
         "help" | "--help" | "-h" => {
@@ -185,6 +231,7 @@ USAGE:
     unicomp <COMMAND> [OPTIONS]
 
 COMMANDS:
+    init                   Generates a .unicomp.toml configuration file in the current directory
     daemon, host, server   Starts the UniComp worker daemon on a cluster host / remote desktop
     run, exec              Executes the current project on a remote UniComp host
     check, status          Inspects remote cluster capabilities, toolchains, and hardware specs

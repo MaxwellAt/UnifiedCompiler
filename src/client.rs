@@ -1,4 +1,5 @@
 use crate::cas::{compress_data, scan_workspace};
+use crate::config::UnicompConfig;
 use crate::framing::{recv_frame, send_frame};
 use crate::language::detect_project;
 use crate::protocol::*;
@@ -12,14 +13,21 @@ pub struct ClientRunner {
     host_addr: String,
     workdir: std::path::PathBuf,
     explicit_command: Vec<String>,
+    project_cfg: Option<UnicompConfig>,
 }
 
 impl ClientRunner {
-    pub fn new(host_addr: &str, workdir: &Path, explicit_command: Vec<String>) -> Self {
+    pub fn new(
+        host_addr: &str,
+        workdir: &Path,
+        explicit_command: Vec<String>,
+        project_cfg: Option<UnicompConfig>,
+    ) -> Self {
         Self {
             host_addr: host_addr.to_string(),
             workdir: workdir.to_path_buf(),
             explicit_command,
+            project_cfg,
         }
     }
 
@@ -133,13 +141,27 @@ impl ClientRunner {
             .map(|n| n.to_string_lossy().to_string())
             .unwrap_or_else(|| "project".to_string());
 
+        let mut env_vars = HashMap::new();
+        let mut sync_artifacts = Vec::new();
+
+        if let Some(ref pcfg) = self.project_cfg {
+            if let Some(ref env) = pcfg.env {
+                env_vars.extend(env.clone());
+            }
+            if let Some(ref sync) = pcfg.sync {
+                if let Some(ref arts) = sync.artifacts {
+                    sync_artifacts.extend(arts.clone());
+                }
+            }
+        }
+
         let config = ExecutionConfig {
             job_id,
             project_name,
             language: detected.language,
             command,
-            env_vars: HashMap::new(),
-            sync_artifacts: Vec::new(),
+            env_vars,
+            sync_artifacts,
             pty_mode: false,
             term_cols: 80,
             term_rows: 24,

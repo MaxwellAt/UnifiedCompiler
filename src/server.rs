@@ -125,6 +125,18 @@ pub fn probe_capabilities() -> NodeCapabilities {
         });
     }
 
+    // Check go
+    if let Ok(out) = std::process::Command::new("go").arg("version").output() {
+        if out.status.success() {
+            let ver = String::from_utf8_lossy(&out.stdout).trim().to_string();
+            toolchains.push(ToolchainInfo {
+                name: "go".to_string(),
+                version: ver,
+                path: "go".to_string(),
+            });
+        }
+    }
+
     NodeCapabilities {
         os,
         arch,
@@ -257,17 +269,41 @@ where
         return Ok(0);
     }
 
-    let program = &config.command[0];
-    let args = &config.command[1..];
+    #[cfg(windows)]
+    let (real_prog, real_args): (String, Vec<String>) = {
+        let raw = &config.command[0];
+        let raw_lower = raw.to_lowercase();
+        if raw_lower.ends_with(".cmd")
+            || raw_lower.ends_with(".bat")
+            || raw_lower == "npm"
+            || raw_lower == "yarn"
+            || raw_lower == "pnpm"
+            || raw_lower == "npx"
+            || raw_lower == "pip"
+        {
+            ("cmd.exe".to_string(), {
+                let mut v = vec!["/C".to_string(), raw.clone()];
+                v.extend_from_slice(&config.command[1..]);
+                v
+            })
+        } else {
+            (raw.clone(), config.command[1..].to_vec())
+        }
+    };
 
-    let mut cmd = Command::new(program);
-    cmd.args(args);
+    #[cfg(not(windows))]
+    let (real_prog, real_args): (String, Vec<String>) = {
+        (config.command[0].clone(), config.command[1..].to_vec())
+    };
+
+    let mut cmd = Command::new(&real_prog);
+    cmd.args(&real_args);
     cmd.current_dir(job_dir);
     cmd.envs(&config.env_vars);
     cmd.stdout(Stdio::piped());
     cmd.stderr(Stdio::piped());
 
-    let mut child = cmd.spawn().with_context(|| format!("Failed to spawn {}", program))?;
+    let mut child = cmd.spawn().with_context(|| format!("Failed to spawn {} (command: {:?})", real_prog, config.command))?;
 
     let mut child_stdout = child.stdout.take().context("Missing child stdout")?;
     let mut child_stderr = child.stderr.take().context("Missing child stderr")?;

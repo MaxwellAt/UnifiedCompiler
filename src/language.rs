@@ -69,7 +69,27 @@ pub fn detect_project(dir: &Path) -> DetectedProject {
         };
     }
 
-    // 4. JVM / Java / Gradle / Maven project
+    // 4. Go project
+    if dir.join("go.mod").is_file() || dir.join("main.go").is_file() {
+        return DetectedProject {
+            language: LanguagePreset::Go,
+            entry_file: Some("main.go".to_string()),
+            default_command: vec!["go".to_string(), "run".to_string(), ".".to_string()],
+            hydration_commands: vec![vec!["go".to_string(), "mod".to_string(), "download".to_string()]],
+        };
+    }
+
+    // 5. C/C++ project (CMake)
+    if dir.join("CMakeLists.txt").is_file() {
+        return DetectedProject {
+            language: LanguagePreset::Cpp,
+            entry_file: Some("CMakeLists.txt".to_string()),
+            default_command: vec!["cmake".to_string(), "--build".to_string(), "build".to_string()],
+            hydration_commands: vec![vec!["cmake".to_string(), "-B".to_string(), "build".to_string()]],
+        };
+    }
+
+    // 6. JVM / Java / Gradle / Maven project
     if dir.join("pom.xml").is_file() {
         return DetectedProject {
             language: LanguagePreset::Jvm,

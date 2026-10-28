@@ -18,3 +18,4 @@ hex = "0.4"
 flate2 = { version = "1.0", default-features = false, features = ["rust_backend"] }
 anyhow = "1.0"
 ignore = "0.4"
+toml = "0.8"
